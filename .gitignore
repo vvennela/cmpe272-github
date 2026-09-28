@@ -1,3 +1,4 @@
 .secrets/
 dist/
 .webhook-state.json
+.DS_Store
