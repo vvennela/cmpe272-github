@@ -1,0 +1,55 @@
+services:
+  #Database
+  postgres:
+    image: postgres:17
+    container_name: shutlescope-postgres
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    ports:
+      - "5433:5432"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+  
+  #the app
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    
+    env_file:
+      - .env
+
+    ports:
+      - "5000:5000"
+    
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+
+volumes:
+  postgres_data:
+
+    
+
+
+
+
+
