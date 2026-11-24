@@ -126,7 +126,34 @@ class MapEndpointsTest(unittest.TestCase):
         self.assertEqual(self.client.get(path).status_code, 503)
         self.https.assert_not_called()
 
-    def test_backend_only(self):
+    def test_dashboard_and_assets(self):
+        self.app.config["GOOGLE_MAPS_API_KEY"] = ""
         self.assertEqual(self.client.get("/healthz").json, {"status": "ok"})
-        for path in ("/", "/static/map.js", "/static/map.css", "/static/trips.mjs"):
-            self.assertEqual(self.client.get(path).status_code, 404)
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Your commute, connected.", response.data)
+        self.assertIn(b'novalidate', response.data)
+        for path in ("/static/dashboard.js", "/static/dashboard.css", "/static/vendor/leaflet.js", "/static/vendor/leaflet.css"):
+            with self.client.get(path) as asset:
+                self.assertEqual(asset.status_code, 200)
+        self.https.assert_not_called()
+
+    def test_network_capacity_and_ordered_stops(self):
+        with self.app.app_context(), db.engine.begin() as connection:
+            for statement in (
+                "ALTER TABLE pickup_locations ADD COLUMN type TEXT DEFAULT 'BUS_STOP'",
+                "ALTER TABLE pickup_locations ADD COLUMN parking_notes TEXT",
+                "ALTER TABLE pickup_locations ADD COLUMN bike_parking_notes TEXT",
+                "ALTER TABLE shuttle_routes ADD COLUMN departure_time TEXT DEFAULT '07:30:00'",
+                "ALTER TABLE shuttle_routes ADD COLUMN arrival_time TEXT DEFAULT '08:25:00'",
+                "ALTER TABLE shuttles ADD COLUMN capacity INTEGER DEFAULT 24",
+                "CREATE TABLE employees (id INTEGER, shuttle_route_id INTEGER)",
+                "INSERT INTO employees VALUES (1,4)",
+            ):
+                connection.execute(text(statement))
+        response = self.client.get("/api/map/network")
+        self.assertEqual(response.status_code, 200)
+        route = next(item for item in response.json["routes"] if item["id"] == "4")
+        self.assertEqual((route["capacity"], route["riders"]), (24, 1))
+        self.assertEqual([stop["name"] for stop in route["stops"]], ["A", "B", "Office"])
+        self.assertEqual(self.client.get("/api/map/shuttles").json["shuttles"][0]["id"], "3")

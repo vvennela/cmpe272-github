@@ -1,0 +1,276 @@
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const state = { hubs: [], routes: [], shuttles: [], selected: new URLSearchParams(location.search).get('hub'), loaded: false, loading: false, nearestBusy: false, nearestVersion: 0, nearestController: null };
+  const theme = getComputedStyle(document.documentElement);
+  const color = (name) => theme.getPropertyValue(`--${name}`).trim();
+  const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+  let map, layers, userLayer, tileErrors = 0;
+  const text = (tag, value, className) => {
+    const element = document.createElement(tag);
+    element.textContent = value;
+    if (className) element.className = className;
+    return element;
+  };
+  const latLng = (position) => [position.lat, position.lng];
+  const time = (value) => {
+    const [hours, minutes] = value.split(':');
+    const hour = Number(hours);
+    return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
+  };
+  function setStatus(message, error = false) {
+    $('network-status').textContent = message;
+    $('network-status').classList.toggle('error', error);
+  }
+  async function request(path, options = {}) {
+    const timeout = new AbortController();
+    const timer = setTimeout(() => timeout.abort(), 12000);
+    const signal = options.signal ? AbortSignal.any([options.signal, timeout.signal]) : timeout.signal;
+    try {
+      const response = await fetch(path, { ...options, signal, cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'The request failed. Try again.');
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('The request took too long. Try again.');
+      if (error instanceof TypeError) throw new Error('Cannot connect. Check your connection and try again.');
+      throw error;
+    } finally { clearTimeout(timer); }
+  }
+  function initMap() {
+    if (!window.L) {
+      $('map-status').textContent = 'The map could not load. Hub details and schedules are available below.';
+      $('fit-map').disabled = true;
+      return;
+    }
+    map = L.map('map', { scrollWheelZoom: false }).setView([37.37, -121.95], 11);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).on('tileerror', () => {
+      tileErrors += 1;
+      if (tileErrors >= 3) $('map-status').textContent = 'Map background unavailable. Network markers and schedules are still available.';
+    }).on('tileload', () => {
+      tileErrors = 0;
+      $('map-status').textContent = '';
+    }).addTo(map);
+    layers = L.layerGroup().addTo(map);
+    userLayer = L.layerGroup().addTo(map);
+  }
+  function fitMap() {
+    if (!map) return;
+    const points = [...state.hubs, ...state.shuttles, ...state.routes.flatMap((route) => route.stops)].map((item) => latLng(item.position));
+    if (points.length) map.fitBounds(points, { padding: [45, 45], maxZoom: 13, animate: false });
+  }
+  function renderMap(fit = false) {
+    if (!map) return;
+    layers.clearLayers();
+    const chosenRoutes = state.routes.filter((route) => route.hubId === state.selected);
+    chosenRoutes.forEach((route) => {
+      const hub = state.hubs.find((item) => item.id === route.hubId);
+      if (!hub) return;
+      const points = [latLng(hub.position), ...route.stops.map((stop) => latLng(stop.position))];
+      L.polyline(points, { color: color('brand'), weight: 3, dashArray: '7 7', opacity: 0.7 }).addTo(layers);
+      route.stops.forEach((stop) => L.circleMarker(latLng(stop.position), { radius: 6, color: color('brand'), weight: 2, fillColor: color('surface'), fillOpacity: 1 }).bindTooltip(text('span', stop.name)).addTo(layers));
+    });
+    state.hubs.forEach((hub) => {
+      const icon = L.divIcon({ className: '', html: `<span class="hub-marker${hub.id === state.selected ? ' selected' : ''}">H</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+      L.marker(latLng(hub.position), { icon, title: `Select ${hub.name}`, alt: hub.name, keyboard: true }).bindTooltip(text('span', hub.name)).on('click', () => selectHub(hub.id)).addTo(layers);
+    });
+    state.shuttles.forEach((shuttle) => {
+      const icon = L.divIcon({ className: '', html: '<span class="shuttle-marker">↗</span>', iconSize: [30, 30], iconAnchor: [15, 15] });
+      L.marker(latLng(shuttle.position), { icon, title: `Shuttle ${shuttle.id} · Last reported position`, keyboard: true }).bindPopup(text('span', `Shuttle ${shuttle.id} · Last reported position. Position time unavailable.`)).addTo(layers);
+    });
+    if (fit) fitMap();
+  }
+  function renderHubs() {
+    $('hub-count').textContent = state.hubs.length;
+    const list = $('hub-list');
+    list.replaceChildren();
+    if (!state.hubs.length) {
+      list.append(text('p', 'No pickup hubs are configured yet. Refresh after a network is added.', 'empty'));
+      return;
+    }
+    for (const hub of state.hubs) {
+      const routes = state.routes.filter((route) => route.hubId === hub.id);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'hub-card';
+      button.setAttribute('aria-pressed', String(hub.id === state.selected));
+      const top = text('span', '', 'hub-card-top');
+      top.append(text('span', { BART: 'BART station', BUS_STOP: 'Bus stop', COMPANY: 'Company' }[hub.type] || 'Pickup hub', 'tag'));
+      const check = text('span', hub.id === state.selected ? '✓' : '↗', 'hub-check');
+      check.setAttribute('aria-hidden', 'true');
+      top.append(check);
+      button.append(top, text('strong', hub.name), text('span', hub.address, 'address'), text('span', routes.length ? `${routes.length} shuttle ${routes.length === 1 ? 'route' : 'routes'}` : 'No shuttle routes scheduled', 'route-count'));
+      button.addEventListener('click', () => selectHub(hub.id));
+      list.append(button);
+    }
+  }
+  function renderSchedule() {
+    const panel = $('schedule');
+    panel.replaceChildren();
+    const hub = state.hubs.find((item) => item.id === state.selected);
+    if (!hub) {
+      panel.append(text('p', 'Select a pickup hub to see its shuttle schedule.', 'empty'));
+      return;
+    }
+    panel.append(text('p', hub.name, 'selected-hub'));
+    const routes = state.routes.filter((route) => route.hubId === hub.id);
+    if (!routes.length) {
+      const empty = text('div', '', 'empty');
+      empty.append(text('strong', 'No shuttles scheduled'), text('p', 'This hub is on the network, but has no assigned shuttle routes. Choose another pickup hub.'));
+      panel.append(empty);
+    }
+    for (const route of routes) {
+      const card = text('article', '', 'route-card');
+      const top = text('div', '', 'route-top');
+      const available = Math.max(0, route.capacity - route.riders);
+      top.append(text('h3', `Shuttle ${route.shuttleId} · Route ${route.id}`, 'route-title'), text('span', available ? `${available} seats available` : 'Shuttle full', 'seats'));
+      const times = text('div', '', 'times');
+      const departure = text('div', time(route.departure), 'time');
+      departure.append(text('span', 'Departure', 'time-label'));
+      const arrival = text('div', time(route.arrival), 'time');
+      arrival.append(text('span', 'Arrival', 'time-label'));
+      const line = text('div', '', 'journey-line');
+      const minutes = (value) => { const [h, m] = value.split(':').map(Number); return h * 60 + m; };
+      const duration = (minutes(route.arrival) - minutes(route.departure) + 1440) % 1440;
+      line.append(text('span', `${duration} min`));
+      times.append(departure, line, arrival);
+      const stops = text('ol', '', 'stops');
+      stops.setAttribute('aria-label', 'Scheduled stop order');
+      [hub, ...route.stops].forEach((stop) => stops.append(text('li', stop.name)));
+      const notes = text('div', '', 'route-notes');
+      notes.append(text('p', `${route.riders} assigned riders / ${route.capacity} seats`));
+      const stored = state.shuttles.find((shuttle) => shuttle.id === route.shuttleId);
+      notes.append(text('p', stored ? `Last reported: ${stored.position.lat.toFixed(4)}, ${stored.position.lng.toFixed(4)}. Position time unavailable.` : 'Shuttle position unavailable.'));
+      card.append(top, times, stops, notes);
+      panel.append(card);
+    }
+    if (hub.parking || hub.bikeParking) {
+      const access = text('div', '', 'route-notes');
+      if (hub.parking) access.append(text('p', `Parking: ${hub.parking}`));
+      if (hub.bikeParking) access.append(text('p', `Bike parking: ${hub.bikeParking}`));
+      panel.append(access);
+    }
+  }
+  function selectHub(id, announce = true) {
+    state.selected = id;
+    const url = new URL(location.href);
+    if (id) url.searchParams.set('hub', id); else url.searchParams.delete('hub');
+    history.replaceState(null, '', url);
+    // Keep keyboard focus on the equivalent hub button when rendering selection.
+    const focusedHub = document.activeElement.closest?.('.hub-card');
+    const index = focusedHub ? [...$('hub-list').children].indexOf(focusedHub) : -1;
+    renderHubs(); renderSchedule(); renderMap();
+    if (index >= 0) $('hub-list').children[index]?.focus({ preventScroll: true });
+    if (announce) {
+      const hub = state.hubs.find((item) => item.id === id);
+      if (hub) setStatus(`Showing schedules for ${hub.name}.`);
+    }
+  }
+  async function loadNetwork() {
+    if (state.loading) return;
+    state.loading = true;
+    $('refresh').disabled = true;
+    $('workspace').setAttribute('aria-busy', 'true');
+    setStatus(state.loaded ? 'Refreshing network… Existing data stays visible.' : 'Loading shuttle network…');
+    try {
+      const [networkResult, shuttleResult] = await Promise.allSettled([request('/api/map/network'), request('/api/map/shuttles')]);
+      if (networkResult.status === 'rejected') throw networkResult.reason;
+      const network = networkResult.value;
+      state.hubs = network.hubs;
+      state.routes = network.routes;
+      state.shuttles = shuttleResult.status === 'fulfilled' ? shuttleResult.value.shuttles : [];
+      if (!state.hubs.some((hub) => hub.id === state.selected)) state.selected = state.hubs[0]?.id || null;
+      state.loaded = true;
+      selectHub(state.selected, false);
+      fitMap();
+      $('updated').textContent = `Loaded ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' }).format(new Date())}`;
+      setStatus(shuttleResult.status === 'rejected' ? 'Schedules loaded. Shuttle positions are unavailable; refresh to try again.' : `${state.hubs.length} pickup hubs · ${state.routes.length} shuttle ${state.routes.length === 1 ? 'route' : 'routes'} · ${state.shuttles.length} stored shuttle ${state.shuttles.length === 1 ? 'position' : 'positions'}`);
+    } catch (error) {
+      setStatus(`${error.message} ${state.loaded ? 'Showing the previously loaded network.' : 'Use Refresh network to retry.'}`, true);
+      if (!state.loaded) {
+        $('hub-list').replaceChildren(text('p', 'Pickup hubs could not load. Use Refresh network to try again.', 'empty'));
+        $('schedule').replaceChildren(text('p', 'Schedules will appear when the network is available.', 'empty'));
+      }
+    } finally {
+      state.loading = false;
+      $('refresh').disabled = false;
+      $('workspace').setAttribute('aria-busy', 'false');
+    }
+  }
+  function nearestBusy(busy) {
+    state.nearestBusy = busy;
+    $('locate').disabled = busy;
+    $('find-coordinates').disabled = busy;
+    $('coordinates').setAttribute('aria-busy', String(busy));
+  }
+  async function findNearest(position, version) {
+    state.nearestController?.abort();
+    state.nearestController = new AbortController();
+    try {
+      const result = await request('/api/map/hubs/nearest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(position), signal: state.nearestController.signal });
+      if (version !== state.nearestVersion) return;
+      if (!state.loaded) await loadNetwork();
+      if (!state.hubs.some((hub) => hub.id === result.hub.id)) throw new Error('The network has changed. Refresh the network and try again.');
+      selectHub(result.hub.id);
+      $('location-status').textContent = `${result.hub.name} is ${number.format(result.distanceKm)} km away in a straight line.`;
+      if (map) {
+        userLayer.clearLayers();
+        L.circleMarker(latLng(position), { radius: 7, color: color('ink'), fillColor: color('surface'), fillOpacity: 1 }).bindTooltip(text('span', 'Your selected location')).addTo(userLayer);
+        map.fitBounds([latLng(position), latLng(result.hub.position)], { padding: [55, 55], maxZoom: 14, animate: false });
+      }
+    } catch (error) {
+      if (version === state.nearestVersion) $('location-status').textContent = error.message;
+    } finally {
+      if (version === state.nearestVersion) nearestBusy(false);
+    }
+  }
+  $('refresh').addEventListener('click', loadNetwork);
+  $('fit-map').addEventListener('click', fitMap);
+  $('locate').addEventListener('click', () => {
+    if (state.nearestBusy) return;
+    if (!navigator.geolocation) {
+      $('location-status').textContent = 'Location is unavailable in this browser. Use coordinates instead.';
+      return;
+    }
+    const version = ++state.nearestVersion;
+    nearestBusy(true);
+    $('location-status').textContent = 'Waiting for your location…';
+    navigator.geolocation.getCurrentPosition((result) => {
+      if (version !== state.nearestVersion) return;
+      $('location-status').textContent = 'Finding your nearest hub…';
+      findNearest({ lat: result.coords.latitude, lng: result.coords.longitude }, version);
+    }, (error) => {
+      if (version !== state.nearestVersion) return;
+      nearestBusy(false);
+      $('location-status').textContent = error.code === 1 ? 'Location access was denied. Use coordinates instead, or allow location in your browser.' : 'Could not get your location. Try again or use coordinates instead.';
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  });
+  $('coordinates').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (state.nearestBusy) return;
+    const fields = [['latitude', 'Latitude', 90], ['longitude', 'Longitude', 180]];
+    let invalid;
+    const values = fields.map(([id, name, limit]) => {
+      const field = $(id);
+      const value = field.value.trim();
+      const valid = value !== '' && /^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(value) && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= limit;
+      field.setAttribute('aria-invalid', String(!valid));
+      if (!valid && !invalid) invalid = { field, message: `${name} must be a number from ${-limit} to ${limit}.` };
+      return Number(value);
+    });
+    $('coordinate-error').textContent = invalid?.message || '';
+    if (invalid) { invalid.field.focus(); return; }
+    nearestBusy(true);
+    $('location-status').textContent = 'Finding your nearest hub…';
+    findNearest({ lat: values[0], lng: values[1] }, ++state.nearestVersion);
+  });
+  window.addEventListener('offline', () => setStatus('You are offline. Showing any previously loaded network. Reconnect and refresh to update.', true));
+  $('refresh').disabled = false;
+  $('locate').disabled = false;
+  $('fit-map').disabled = false;
+  initMap();
+  loadNetwork();
+})();
