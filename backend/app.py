@@ -1,58 +1,35 @@
-#python imports
-from flask import Flask, jsonify
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
+from flask import Flask
 
-#file imports
-from backend.database import db, DB_URL
-
-
-#get env variables
-load_dotenv()
-
-app = Flask(
-    __name__
-)
+from backend.database import database_url, db
+from backend.routes.maps import maps_api
 
 
-app.config.from_mapping(
-    SQLALCHEMY_DATABASE_URI=DB_URL,
-    SECRET_KEY=os.getenv('SECRET_KEY')
-)
-
-#health check route
-@app.route("/healthz")
-def healthz():
-    return jsonify({"status": "ok"}), 200
-
-#connect db to app
-db.init_app(app)
-
-#register blue prints
-#bp 1
-
-#bp 2
-#.....
-
-
-
-#start the app
-if __name__ == "__main__":
-    #test database connection
-    with app.app_context():
-        try:
-            with db.engine.connect():
-                print("Connected to database")
-        except Exception:
-            print("Database connection failed")
-
-
-    #run the app
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True,
-        use_reloader=True,
+def create_app(config=None):
+    root = Path(__file__).resolve().parent.parent
+    load_dotenv(root / ".env.local")
+    load_dotenv(root / ".env")
+    app = Flask(__name__, static_folder=None)
+    app.config.from_mapping(
+        SQLALCHEMY_DATABASE_URI=database_url(),
+        SECRET_KEY=os.getenv("SECRET_KEY"),
+        GOOGLE_MAPS_API_KEY=os.getenv("GOOGLE_MAPS_API_KEY", ""),
     )
+    app.config.update(config or {})
+    db.init_app(app)
+    app.register_blueprint(maps_api)
+
+    @app.get("/healthz")
+    def healthz():
+        return {"status": "ok"}
+
+    return app
 
 
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

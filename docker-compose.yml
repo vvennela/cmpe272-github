@@ -30,13 +30,14 @@ services:
     
     env_file:
       - .env
+      - path: .env.local
+        required: false
 
     ports:
       - "5000:5000"
     
     volumes:
       - ./backend:/app/backend
-      - ./frontend:/app/frontend
 
     depends_on:
       postgres:

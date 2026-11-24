@@ -1,11 +1,18 @@
-from flask_sqlalchemy import SQLAlchemy
 import os
 
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import URL
 
-#postgresql://username:password@hostname:port/database_name
-DB_URL = (
-    f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@postgres:5432/{os.getenv('POSTGRES_DB')}"
-)
 
-#sql alchemy instance
 db = SQLAlchemy()
+
+
+def database_url():
+    return os.getenv("DATABASE_URL") or URL.create(
+        "postgresql+psycopg2",
+        username=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        host="postgres",
+        port=5432,
+        database=os.getenv("POSTGRES_DB"),
+    )
