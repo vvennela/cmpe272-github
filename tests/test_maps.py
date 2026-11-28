@@ -51,6 +51,8 @@ class MapEndpointsTest(unittest.TestCase):
         self.assertEqual(body["origin"], {"address": "1 Main St"})
         self.assertEqual(body["destination"]["location"]["latLng"], {"latitude": 37, "longitude": -122})
         self.assertEqual(body["travelMode"], "TRANSIT")
+        self.assertEqual(body["languageCode"], "en-US")
+        self.assertEqual(body["units"], "METRIC")
         self.assertNotIn("routingPreference", body)
         self.assertEqual(kwargs["headers"]["X-Goog-Api-Key"], "test-only")
         self.assertIn("routes.legs.steps.transitDetails", kwargs["headers"]["X-Goog-FieldMask"])
@@ -157,3 +159,15 @@ class MapEndpointsTest(unittest.TestCase):
         self.assertEqual((route["capacity"], route["riders"]), (24, 1))
         self.assertEqual([stop["name"] for stop in route["stops"]], ["A", "B", "Office"])
         self.assertEqual(self.client.get("/api/map/shuttles").json["shuttles"][0]["id"], "3")
+
+    def test_directions_modes_and_empty_results(self):
+        self.connection.getresponse.return_value = self.response({})
+        for mode in ("WALK", "BICYCLE", "TRANSIT", "DRIVE"):
+            result = self.client.post("/api/map/hubs/1/directions", json={"origin": "  1 Main St  ", "travelMode": mode})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json, {"routes": []})
+            body = json.loads(self.connection.request.call_args.kwargs["body"])
+            self.assertEqual(body["origin"], {"address": "1 Main St"})
+            self.assertEqual(body.get("routingPreference"), "TRAFFIC_AWARE" if mode == "DRIVE" else None)
+        self.assertEqual(self.client.post("/api/map/hubs/1/directions", json={"origin": "X", "travelMode": "FLY"}).status_code, 400)
+        self.assertEqual(self.client.post("/api/map/hubs/999/directions", json={"origin": "X"}).status_code, 404)

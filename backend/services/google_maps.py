@@ -65,6 +65,7 @@ def compute_routes(origin, destination, mode="DRIVE", *, intermediate=(), optimi
         body["optimizeWaypointOrder"] = True
         fields += ",routes.optimizedIntermediateWaypointIndex"
     if steps:
+        body.update(languageCode="en-US", units="METRIC")
         fields += ",routes.legs.steps.navigationInstruction,routes.legs.steps.transitDetails,routes.legs.steps.travelMode"
     return google_post("routes.googleapis.com", "/directions/v2:computeRoutes", body, fields, "routes")
 
