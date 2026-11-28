@@ -14,7 +14,8 @@ Status as of November 27, 2026. Checked items are implemented; live Google integ
 - [x] Directions travel time, distance, instructions, warnings and Google Maps navigation link.
 - [x] Optional embedded Google route map with a separate browser key.
 - [x] Directions validation, loading, empty-route, error and retry states; stale requests cancelled on input/hub changes.
-- [x] Automated checks: 12 backend tests and 7 directions interaction tests pass with Google mocked.
+- [x] Automated checks for maps, directions, and the user model (Google requests mocked).
+- [x] User model matching the existing users table, employee-role default, and salted password hashing/verification.
 
 ## Implemented backend features still needing dashboard controls
 
