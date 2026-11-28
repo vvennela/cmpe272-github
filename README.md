@@ -1,4 +1,20 @@
-# ShuttleScope Maps API
+# ShuttleScope commuter dashboard
+
+Open `http://localhost:5000/` after starting the stack. The dashboard uses the existing Flask API for pickup hubs, schedules, ordered stops, seat availability, stored shuttle positions, and nearest-hub lookup. No Google API key is needed for these features. Leaflet 1.9.4 is vendored with its license; the geographic background loads OpenStreetMap tiles and requires internet access.
+
+Choose a hub to update the map and schedule. Use **Find my nearest hub** for a one-time browser location request, or expand **Use coordinates instead**. Coordinates are not persisted. Dashed map lines indicate stop order, not driving directions; positions are last reported and have no freshness timestamp. Seat availability is capacity minus assigned riders, not a booking guarantee. Schedule times are shown in Pacific time without implying dates of service.
+
+Start with `docker compose up --build -d`. On an empty database, load the optional sample network with:
+
+```sh
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/example_network.sql
+```
+
+The sample loader skips existing networks. It creates two hubs, one shuttle and a route with three stops. If port 5000 is occupied, use an ignored Compose override to map another host port (for example `127.0.0.1:5272:5000`); keep the API container port at 5000.
+
+Install `backend/requirements.txt`, then run `python -m unittest discover -s tests -v`. Check the dashboard script with `node --check backend/static/dashboard.js`. There is no frontend build step. See `DESIGN.md` for UI ownership and behavior.
+
+## Maps API
 
 Flask reads hubs, schedules, ordered stops, and last-reported shuttle coordinates from PostgreSQL. It calls Google Routes API and Places API (New) using a server key. Put `GOOGLE_MAPS_API_KEY` in the ignored `.env.local` file and enable those two APIs for the key.
 
@@ -24,12 +40,12 @@ Run `python -m unittest discover -s tests` after installing `backend/requirement
 
 ## Original project proposal
 
-# Transportation coordination: 
+# Transportation coordination:
 - Coordinating modes of transportations when commuting
-- For example someone wanting to take bart then take the bus would have to check bart schedule see what time to depart, then check and figure out which bus to take and what time it arrives. 
+- For example someone wanting to take bart then take the bus would have to check bart schedule see what time to depart, then check and figure out which bus to take and what time it arrives.
 
 ## Proposed Solution:
-- Transportation planning system that allows user to enter location A, Location B, starting time, desired arrival time. The system combines different transportation methods and shows the user the best path they’ll have to take based on their preference / cost. 
+- Transportation planning system that allows user to enter location A, Location B, starting time, desired arrival time. The system combines different transportation methods and shows the user the best path they’ll have to take based on their preference / cost.
 
 
 ## Features could be:
@@ -38,8 +54,8 @@ User account, favorite locations, frequent trips…
 ## Transportation modes:
 Bart, Bus, Car, Walking, Rideshare
 
-Example use cases: 
-- the user entering the system, set location A to “X bart station”, set location B to “Y bart station”, then the app figures out which trains you’ll transfer at , as well as which bus you’ll be taking right after you arrive. 
+Example use cases:
+- the user entering the system, set location A to “X bart station”, set location B to “Y bart station”, then the app figures out which trains you’ll transfer at , as well as which bus you’ll be taking right after you arrive.
 - showing options to filter for your preferred transit: driving your own vehicle, willing to pay for parking, not willing to bike uphill, etc.
 - app shows option to drive to caltrain station, pay for parking, take train to city, bus to destination, etc.
 

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Find your pickup hub and explore the ShuttleScope shuttle network.">
+  <title>ShuttleScope · Commuter dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script defer src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to dashboard</a>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="ShuttleScope home"><span class="brand-icon" aria-hidden="true">S<span>↗</span></span>ShuttleScope<span class="brand-dot">.</span></a>
+  <span class="nav-current">Your commute</span>
+  <span class="region">SOUTH BAY NETWORK</span>
+</header>
+<main id="main">
+  <section class="intro" aria-labelledby="page-title">
+    <div><p class="eyebrow">A BETTER WAY TO GET THERE</p><h1 id="page-title">Your commute, connected.</h1><p class="subtitle">Find your pickup hub. See your shuttle. Plan the way ahead.</p></div>
+    <div class="refresh-block"><button id="refresh" disabled class="button secondary" type="button"><span aria-hidden="true">↻</span> Refresh network</button><p id="updated">Waiting for network</p></div>
+  </section>
+  <div id="network-status" class="network-status" role="status" aria-live="polite">Loading shuttle network…</div>
+  <section class="workspace" aria-label="Explore your commute" aria-busy="true" id="workspace">
+    <aside class="hub-panel panel" aria-labelledby="hub-heading">
+      <div class="section-heading"><div><p class="eyebrow">START HERE</p><h2 id="hub-heading">Pickup hubs <span id="hub-count" class="count">0</span></h2></div></div>
+      <p class="muted">Choose where your shuttle journey begins.</p>
+      <button type="button" class="button primary locate" id="locate" disabled><span aria-hidden="true">◎</span> Find my nearest hub</button>
+      <p class="small" id="location-status" role="status">Uses your location once to find a hub.</p>
+      <details class="coordinate-details"><summary>Use coordinates instead</summary>
+        <form id="coordinates" novalidate>
+          <div class="coordinate-fields"><div><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="37.3781" aria-describedby="coordinate-error"></div><div><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="-122.0307" aria-describedby="coordinate-error"></div></div>
+          <p id="coordinate-error" class="field-error" role="status"></p><button class="button secondary" id="find-coordinates" type="submit">Find nearest hub</button>
+        </form>
+      </details>
+      <div id="hub-list" class="hub-list"><p class="empty">Loading pickup hubs…</p></div>
+      <div class="hub-footnote"><span class="tiny-route" aria-hidden="true">●<br>│<br>○</span><p>One network.<br><strong>A simpler connection.</strong></p></div>
+    </aside>
+    <section class="map-panel panel" aria-labelledby="map-heading">
+      <div class="map-heading"><div><p class="eyebrow">THE BIG PICTURE</p><h2 id="map-heading">Your shuttle network</h2></div><button type="button" id="fit-map" disabled class="button secondary compact">View all</button></div>
+      <div id="map" aria-label="Interactive map of pickup hubs, shuttle stops, and stored shuttle positions" role="region"></div>
+      <p id="map-status" class="map-status" role="status"></p>
+      <div class="map-legend"><span><i class="legend-dot hub-dot"></i>Pickup hub</span><span><i class="legend-dot stop-dot"></i>Route stop</span><span><i class="legend-dot shuttle-dot"></i>Shuttle</span></div>
+      <p class="map-disclaimer">Lines connect scheduled stops; they do not show driving directions. Shuttle positions are last reported.</p>
+    </section>
+    <section class="schedule-panel panel" aria-labelledby="schedule-heading">
+      <div class="schedule-header"><div><p class="eyebrow">YOUR CONNECTION</p><h2 id="schedule-heading">Shuttle schedule</h2></div><span class="tag">Pacific time</span></div>
+      <div id="schedule"><p class="empty">Choose a pickup hub to see its schedule.</p></div>
+    </section>
+  </section>
+  <footer><span>ShuttleScope <span aria-hidden="true">/</span> CMPE 272</span><span>Schedules and positions reflect stored network data.</span></footer>
+</main>
+</body>
+</html>
