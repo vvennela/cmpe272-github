@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'Create account' if mode == 'signup' else 'Log in' }} · ShuttleScope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script defer src="{{ url_for('static', filename='account.js') }}"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to account form</a>
+{% include '_header.html' %}
+<main class="account-layout" id="main">
+  <section class="account-intro" aria-labelledby="account-intro-title">
+    <p class="eyebrow">YOUR DAILY CONNECTION</p>
+    <h1 id="account-intro-title">A place for<br>your commute.</h1>
+    <p>Your ShuttleScope account starts here. Explore the South Bay shuttle network and find your pickup hub.</p>
+    <div class="account-route" aria-hidden="true"><span>YOU</span><i></i><span>YOUR HUB</span><i></i><span>YOUR SHUTTLE</span></div>
+    <a href="{{ url_for('dashboard') }}">Explore the shuttle network</a>
+  </section>
+  <section class="account-panel panel" aria-labelledby="account-heading">
+    <p class="eyebrow">{{ 'GET STARTED' if mode == 'signup' else 'WELCOME BACK' }}</p>
+    <h2 id="account-heading">{{ 'Create your account' if mode == 'signup' else 'Log in to ShuttleScope' }}</h2>
+    <p class="account-description">{{ 'Create an employee account with your email and a password.' if mode == 'signup' else 'Enter your email and password to continue.' }}</p>
+    <form id="account-form" method="post" action="{{ url_for('auth.signup' if mode == 'signup' else 'auth.login') }}" novalidate data-mode="{{ mode }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p id="account-error" class="account-error" role="alert" tabindex="-1">{{ message or '' }}</p>
+      {% if mode == 'signup' %}
+      <div class="account-field"><label for="name">Name</label><input id="name" name="name" type="text" autocomplete="name" maxlength="100" required value="{{ values.get('name', '') }}" aria-invalid="{{ 'true' if errors.get('name') else 'false' }}" aria-describedby="name-error"><p id="name-error" class="field-error">{{ errors.get('name', '') }}</p></div>
+      {% endif %}
+      <div class="account-field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" maxlength="254" required value="{{ values.get('email', '') }}" aria-invalid="{{ 'true' if errors.get('email') else 'false' }}" aria-describedby="email-error"><p id="email-error" class="field-error">{{ errors.get('email', '') }}</p></div>
+      {% if mode == 'signup' %}
+      <div class="account-field"><label for="address">Address</label><input id="address" name="address" type="text" autocomplete="street-address" maxlength="500" required value="{{ values.get('address', '') }}" aria-invalid="{{ 'true' if errors.get('address') else 'false' }}" aria-describedby="address-error"><p id="address-error" class="field-error">{{ errors.get('address', '') }}</p></div>
+      {% endif %}
+      <div class="account-field"><label for="password">Password</label><div class="password-field"><input id="password" name="password" type="password" autocomplete="{{ 'new-password' if mode == 'signup' else 'current-password' }}" maxlength="128" required aria-invalid="{{ 'true' if errors.get('password') else 'false' }}" aria-describedby="password-help password-error"><button type="button" class="password-toggle" disabled data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></div><p id="password-help" class="account-help">{{ 'Use 15–128 characters. A long phrase works well. Spaces and symbols are allowed.' if mode == 'signup' else 'Use the password you created for this account.' }}</p><p id="password-error" class="field-error">{{ errors.get('password', '') }}</p></div>
+      {% if mode == 'signup' %}
+      <div class="account-field"><label for="confirm_password">Confirm password</label><div class="password-field"><input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" maxlength="128" required aria-invalid="{{ 'true' if errors.get('confirm_password') else 'false' }}" aria-describedby="confirm_password-error"><button type="button" class="password-toggle" disabled data-password-toggle="confirm_password" aria-label="Show password confirmation" aria-pressed="false">Show</button></div><p id="confirm_password-error" class="field-error">{{ errors.get('confirm_password', '') }}</p></div>
+      {% endif %}
+      <button id="account-submit" class="button primary" type="submit" {% if not config['SECRET_KEY'] %}disabled{% endif %}>{{ 'Create account' if mode == 'signup' else 'Log in' }}</button>
+      <p id="account-status" class="account-help" role="status" aria-live="polite"></p>
+    </form>
+    <p class="account-switch">{{ 'Already have an account?' if mode == 'signup' else 'New to ShuttleScope?' }} <a href="{{ url_for('auth.login' if mode == 'signup' else 'auth.signup') }}">{{ 'Log in' if mode == 'signup' else 'Create an account' }}</a></p>
+  </section>
+</main>
+</body>
+</html>

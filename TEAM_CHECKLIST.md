@@ -15,7 +15,9 @@ Status as of November 27, 2026. Checked items are implemented; live Google integ
 - [x] Optional embedded Google route map with a separate browser key.
 - [x] Directions validation, loading, empty-route, error and retry states; stale requests cancelled on input/hub changes.
 - [x] Automated checks for maps, directions, and the user model (Google requests mocked).
-- [x] User model matching the existing users table, employee-role default, and salted password hashing/verification.
+- [x] User model with employee-role default and salted password hashing/verification.
+- [x] Employee signup, email/password login, logout and signed-in header.
+- [x] Additive email migration, unique normalized emails, CSRF protection and login/signup rate limits.
 
 ## Implemented backend features still needing dashboard controls
 
@@ -24,6 +26,9 @@ Status as of November 27, 2026. Checked items are implemented; live Google integ
 - [ ] Add scheduled versus optimized route comparison.
 
 ## Setup and verification still needed
+
+- [ ] Each teammate: apply `002_user_email.sql`, set private `SESSION_SECRET` in ignored `.env.local`, then rebuild/recreate the API.
+- [ ] Before public deployment: HTTPS/secure cookies and shared rate-limit storage.
 
 - [ ] Configure the server Google Routes key in ignored `.env.local`.
 - [ ] Configure a separate browser-restricted Maps JavaScript key for the embedded route map.
@@ -34,7 +39,9 @@ Status as of November 27, 2026. Checked items are implemented; live Google integ
 
 ## Features not implemented
 
-- [ ] Employee signup, login, logout and admin authorization.
+- [ ] Email verification, password reset and revocable server-side sessions for account recovery/all-device logout.
+
+- [ ] Admin authorization and account provisioning.
 - [ ] Employee pickup-hub and shuttle-route assignment.
 - [ ] Admin screens and APIs to manage hubs, shuttles, schedules and stops.
 - [ ] Seat booking/cancellation and capacity enforcement, if the team chooses a booking workflow.

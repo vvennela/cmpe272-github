@@ -42,7 +42,7 @@ components:
 
 A product surface for South Bay commuters choosing a pickup hub and checking a shuttle connection. Evidence: README.md proposal, database/example_network.sql, backend/routes/maps.py, and the requested first dashboard. English (en-US), Pacific schedule times; mobile at the pickup hub and desktop while planning. No Japan-market scope.
 
-North Star: station wayfinding, with a quiet teal network line linking pickup, stops, and arrival. The selected hub drives the map and schedule together. Avoid marketing hero imagery, unrelated metric cards, and claims of real-time tracking. This is the first UI; there are no sibling screens or existing shared components.
+North Star: station wayfinding, with a quiet teal network line linking pickup, stops, and arrival. The selected hub drives the map and schedule together. Avoid marketing hero imagery, unrelated metric cards, and claims of real-time tracking. The commuter dashboard defines the shared visual language; account screens reuse its panels, buttons, typography and header.
 
 Runtime ownership: backend/static/dashboard.css :root is the canonical token source. Frontmatter mirrors those variables by the same names; typography roles map to --font-body, --font-display, --font-data, DEFAULT radius maps to --radius. Leaflet feature styles read brand, ink and surface tokens from computed style, keeping the map synchronized with CSS. Update the documentation and runtime together. No build-time adapter or alternate theme.
 
@@ -68,7 +68,7 @@ Flat white panels with quiet borders; shadows are limited to map markers. The ma
 
 ## Components
 
-Shared action classes are .button, .primary, .secondary, .compact. Hover, focus, pressed, disabled and busy states are provided; busy labels retain width. Native details owns coordinate disclosure. Native inputs and the coordinates form own validation, inline errors, field association, and first-invalid focus. There are no selects, tables, dialogs, mutations or account controls.
+Shared action classes are .button, .primary, .secondary, .compact. Hover, focus, pressed, disabled and busy states are provided; busy labels retain width. Native details owns coordinate disclosure. Native inputs and the coordinates form own validation, inline errors, field association, and first-invalid focus. Account screens reuse these controls and a shared _header.html; there are no selects, tables or dialogs.
 
 Canonical feedback: #network-status for loading/refresh/network errors; #location-status for nearest-hub lookup; #coordinate-error for invalid fields; #map-status for a missing map background. These persist inline with polite status announcements. Requests time out after 12 seconds; duplicate actions are blocked. Failed refresh preserves previous data; failed positions do not hide schedules.
 
@@ -89,7 +89,7 @@ Motion is limited to 150ms button color feedback; reduced motion disables transi
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
-| Form | native forms and handlers in dashboard.html/dashboard.js | DESIGN.md validation and location rules | coordinates, geolocation, directions address and native radio modes | backend tests and tests/test_directions.cjs |
+| Form | native dashboard/account forms and their JS; shared _header.html for logout | DESIGN.md, AUTH.md and server validation | coordinates, geolocation, directions, signup/login/logout | backend tests, tests/test_directions.cjs, tests/test_account.cjs |
 | Scrollbar | global dashboard.css baseline | :root scrollbar tokens | forced-colors system rendering | static audit and stylesheet inspection |
 
 ### Directions extension
@@ -99,3 +99,9 @@ The directions panel extends the same flat panel, action, error, and input syste
 The selected hub determines the destination. Hub/location changes, address edits, or mode changes abort outstanding work and clear old directions. Versions guard both API responses and asynchronous map loading; repeated submit is blocked. A successful refresh of an unchanged hub preserves directions. Request errors retain the address for retry. Empty routes and missing instructions have explicit recovery copy. Inline #directions-status and #directions-error announce results/errors; blank address validation focuses the input. Addresses are not stored in application state outside the current page or persisted in browser storage/URLs; explicit Google Maps navigation links carry the origin to Google. The form explains Google receives the address.
 
 Provider contract: Google Routes results appear in an attributed directions container. Its optional geographic route is rendered only on a separate Google Map, never on the OpenStreetMap network layer (https://developers.google.com/maps/documentation/routes/policies). The server Routes key remains private; only a distinct public browser-restricted Maps JavaScript key reaches the template. Google Maps loads on demand after route success and has independent failure/timeout recovery without removing instructions. The baseline map, schedules, and nearest-hub lookup remain independent of both keys. Runtime browser tests must cover the configured Google map as well as the text-only fallback before public release.
+
+### Account screens
+
+The account screens reuse the dashboard's teal palette, flat panels and system fonts. Desktop pairs a compact transit-connection diagram with a form panel; below 760px they stack in document flow. Header controls wrap at narrow widths, and names wrap rather than clipping essential account actions. Each route has its own title and first-error focus. Shared header template owns guest links, signed-in name and POST logout; shared account template/JS owns signup and login fields, status, password toggles, and request recovery. See AUTH.md for domain and session rules.
+
+Native forms use novalidate and server-side validation with JS enhancement; errors live in named inline regions and associate with fields. Password inputs start masked, allow autofill and paste, and have accessible show/hide buttons. Busy submit preserves button size and blocks duplicates. Safe non-password values survive errors. Rate-limit and database failures retain a recovery path. Logout uses the app-owned POST form. The account layout keeps the dashboard's global scrollbar and reduced-motion baseline; no new token palette is introduced.

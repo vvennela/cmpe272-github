@@ -1,0 +1,16 @@
+<header class="topbar">
+  <a class="brand" href="{{ url_for('dashboard') }}" aria-label="ShuttleScope home"><span class="brand-icon" aria-hidden="true">S<span>↗</span></span>ShuttleScope<span class="brand-dot">.</span></a>
+  <a class="nav-current nav-link" href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}aria-current="page"{% endif %}>Your commute</a>
+  <div class="account-nav">
+    {% if current_user %}
+    <span class="account-name">{{ current_user.name }}</span>
+    <form method="post" action="{{ url_for('auth.logout') }}" class="logout-form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="button secondary compact">Log out</button>
+    </form>
+    {% else %}
+    <a href="{{ url_for('auth.login') }}" class="account-login">Log in</a>
+    <a href="{{ url_for('auth.signup') }}" class="button primary compact">Create account</a>
+    {% endif %}
+  </div>
+</header>

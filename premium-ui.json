@@ -3,7 +3,8 @@
   "sourceRoots": [
     "backend/templates",
     "backend/static/dashboard.js",
-    "backend/static/dashboard.css"
+    "backend/static/dashboard.css",
+    "backend/static/account.js"
   ],
   "locale": "en-US",
   "canonicalMap": "DESIGN.md",
@@ -22,7 +23,7 @@
   ],
   "commands": {
     "unit": "python -m unittest discover -s tests -v",
-    "javascript": "node --check backend/static/dashboard.js",
+    "javascript": "node --check backend/static/dashboard.js && node --check backend/static/account.js",
     "ui": "npm run test:ui"
   }
 }

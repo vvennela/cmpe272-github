@@ -15,6 +15,8 @@ class User(db.Model):
     )
     name = db.Column(db.Text, nullable=False)
     address = db.Column(db.Text, nullable=False)
+    email = db.Column(db.Text, nullable=True)
+    __table_args__ = (db.Index("users_email_unique", db.func.lower(email), unique=True),)
     password_hash = db.Column(db.Text, nullable=False)
     role = db.Column(
         db.Enum(

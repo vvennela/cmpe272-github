@@ -2,7 +2,7 @@
   "name": "shuttlescope-ui-tests",
   "private": true,
   "scripts": {
-    "test:ui": "node --test tests/test_directions.cjs"
+    "test:ui": "node --test tests/test_*.cjs"
   },
   "devDependencies": {
     "jsdom": "29.1.1"

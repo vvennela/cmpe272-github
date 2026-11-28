@@ -14,6 +14,24 @@ The sample loader skips existing networks. It creates two hubs, one shuttle and 
 
 Install `backend/requirements.txt`, then run `python -m unittest discover -s tests -v`. Check the dashboard script with `node --check backend/static/dashboard.js`. There is no frontend build step. See `DESIGN.md` for UI ownership and behavior.
 
+## Employee accounts
+
+Visit `/signup` to create an employee account and `/login` to log in. Accounts use a name, email, address and password. Email is matched case-insensitively; passwords allow 15–128 characters without composition rules. Signup logs the user in and both flows return to the dashboard. The header shows the account name and a POST-only logout action. The network dashboard remains available without an account. Signup never grants admin access.
+
+For existing databases, apply the additive migration before using accounts:
+
+```sh
+docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/migrations/002_user_email.sql
+```
+
+Fresh databases get the email column and unique index from `schema.sql`. Existing users keep `NULL` emails until an administrator provisions their login address; this release does not silently assign login identities to old records. The migration can be run again safely.
+
+Set `SESSION_SECRET` in ignored `.env.local` to a private random value. Generate one locally with `python3 -c 'import secrets; print(secrets.token_hex(32))'`, paste it into that file, and do not commit or share it. The old `SECRET_KEY` in tracked `.env` is deliberately not used for account sessions. Missing `SESSION_SECRET` disables accounts with a setup message while the public dashboard still works. Each teammate needs their own local secret.
+
+Run `docker compose up --build -d` after installing this change (use your existing port override if needed). Recreate the API after changing `.env.local`. New runtime dependencies are installed by Docker or `pip install -r backend/requirements.txt`.
+
+Sessions expire after eight hours and use HttpOnly, SameSite=Lax cookies. All account writes require CSRF tokens. Signup and login are limited to five POST attempts per minute per client IP. Rate limits use in-memory storage for local development. Before a multi-worker/public deployment, configure shared rate-limit storage and its driver, HTTPS, `SESSION_COOKIE_SECURE=true`, and a private stable `SESSION_SECRET`. Login does not verify email ownership; email verification, password reset, admin provisioning and immediate server-side revocation of signed session cookies remain future work. See `AUTH.md` for the account contract.
+
 ## Directions to a pickup hub
 
 Select a hub, enter a starting address in **Directions to your hub**, choose Walk/Bike/Transit/Drive, and click **Get directions**. The dashboard displays estimated travel time, distance, instructions, warnings and a Google Maps navigation link. Changing the hub, address or mode clears the previous trip. The existing network map continues to show scheduled shuttle stops.
