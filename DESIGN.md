@@ -83,11 +83,17 @@ Motion is limited to 150ms button color feedback; reduced motion disables transi
 - Do keep selection synchronized across hubs, map and schedule.
 - Do provide loading, error, empty and partial-data recovery in the same panel structure.
 - Don't label stored coordinates live or invent GPS freshness, route roads, or operating days.
-- Don't expose Google API keys or require Google services for this first dashboard.
+- Don't expose the server Google API key. Core network features work without Google; optional directions use separate server and browser keys.
 
 ### Canonical UI Map
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
-| Form | coordinates form and submit handler in dashboard.html/dashboard.js | DESIGN.md validation and location rules | manual coordinates, one-time geolocation | unit checks and manual browser checks |
+| Form | native forms and handlers in dashboard.html/dashboard.js | DESIGN.md validation and location rules | coordinates, geolocation, directions address and native radio modes | backend tests and tests/test_directions.cjs |
 | Scrollbar | global dashboard.css baseline | :root scrollbar tokens | forced-colors system rendering | static audit and stylesheet inspection |
+
+### Directions extension
+
+The directions panel extends the same flat panel, action, error, and input system. It sits below the network workspace with form/results columns above 760px and natural document stacking below. Native radio buttons own four travel modes; no custom select/listbox is introduced. Body instructions are 15px; fields are 16px. No new palette or typography tokens.
+
+The selected hub determines the destination. Hub/location changes, address edits, or mode changes abort outstanding work and clear old directions. Versions guard both API responses and asynchronous map loading; repeated submit is blocked. A successful refresh of an unchanged hub preserves directions. Request errors retain the address for retry. Empty routes and missing instructions have explicit recovery copy. Inline #directions-status and #directions-error announce results/errors; blank address validation focuses the input. Addresses are not stored in application state outside the current page or persisted in browser storage/URLs; explicit Google Maps navigation links carry the origin to Google. The form explains Google receives the address.

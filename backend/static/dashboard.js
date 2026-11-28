@@ -163,6 +163,7 @@
     const focusedHub = document.activeElement.closest?.('.hub-card');
     const index = focusedHub ? [...$('hub-list').children].indexOf(focusedHub) : -1;
     renderHubs(); renderSchedule(); renderMap();
+    updateDirectionsHub(state.hubs.find((hub) => hub.id === id));
     if (index >= 0) $('hub-list').children[index]?.focus({ preventScroll: true });
     if (announce) {
       const hub = state.hubs.find((item) => item.id === id);
@@ -267,6 +268,117 @@
     $('location-status').textContent = 'Finding your nearest hub…';
     findNearest({ lat: values[0], lng: values[1] }, ++state.nearestVersion);
   });
+  // Directions belong to the selected hub and input values, never to a stale response.
+  const directions = { hub: null, signature: '', version: 0, controller: null, pending: false, map: null, line: null, mapsPromise: null };
+  function directionsMessage(message, error = false) {
+    $('directions-status').textContent = message;
+    $('directions-status').classList.toggle('error', error);
+  }
+  function clearDirections(message) {
+    directions.version += 1;
+    directions.controller?.abort();
+    directions.pending = false;
+    $('directions-form').setAttribute('aria-busy', 'false');
+    $('get-directions').disabled = !directions.hub;
+    $('directions-results').replaceChildren(text('p', 'Enter a starting address to see travel time, distance, and directions to the selected hub.', 'empty'));
+    directionsMessage(message);
+  }
+  function updateDirectionsHub(hub) {
+    const signature = hub ? JSON.stringify([hub.id, hub.name, hub.position]) : '';
+    directions.hub = hub || null;
+    $('directions-destination').textContent = hub ? `To: ${hub.name}` : 'Choose a pickup hub above.';
+    if (signature !== directions.signature) {
+      directions.signature = signature;
+      clearDirections(hub ? 'Ready for your starting address.' : 'Select a hub to get started.');
+    }
+    $('get-directions').disabled = !hub || directions.pending;
+  }
+  function renderDirections(route, hub, origin, mode) {
+    const results = $('directions-results');
+    results.replaceChildren();
+    const heading = text('h3', `Your route to ${hub.name}`);
+    const duration = /^([0-9]+(?:\.[0-9]+)?)s$/.exec(route.duration || '');
+    const durationLabel = duration ? `${Math.max(1, Math.ceil(Number(duration[1]) / 60))} min` : 'Travel time unavailable';
+    const distanceLabel = typeof route.distanceMeters === 'number' ? `${number.format(route.distanceMeters / 1000)} km` : 'Distance unavailable';
+    results.append(heading, text('p', `${durationLabel} · ${distanceLabel} · ${{ WALK: 'Walking', BICYCLE: 'Cycling', TRANSIT: 'Transit', DRIVE: 'Driving' }[mode]}`, 'directions-summary'));
+    const attribution = text('p', 'Google Maps', 'google-attribution');
+    attribution.setAttribute('translate', 'no');
+    results.append(attribution);
+    const link = text('a', 'Open trip in Google Maps', 'directions-link');
+    const params = new URLSearchParams({ api: '1', origin, destination: `${hub.position.lat},${hub.position.lng}`, travelmode: { WALK: 'walking', BICYCLE: 'bicycling', TRANSIT: 'transit', DRIVE: 'driving' }[mode] });
+    link.href = `https://www.google.com/maps/dir/?${params}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    results.append(link);
+    for (const warning of route.warnings || []) results.append(text('p', warning, 'directions-warning'));
+    const steps = (route.legs || []).flatMap((leg) => leg.steps || []);
+    const list = text('ol', '', 'directions-steps');
+    list.setAttribute('aria-label', 'Travel instructions');
+    for (const step of steps) {
+      const transit = step.transitDetails;
+      let instruction = step.navigationInstruction?.instructions;
+      if (transit) {
+        const line = transit.transitLine?.nameShort || transit.transitLine?.name || 'transit';
+        const from = transit.stopDetails?.departureStop?.name;
+        const to = transit.stopDetails?.arrivalStop?.name;
+        instruction = `Take ${line}${transit.headsign ? ` toward ${transit.headsign}` : ''}${from ? ` from ${from}` : ''}${to ? ` to ${to}` : ''}.`;
+      }
+      if (instruction) list.append(text('li', instruction));
+    }
+    if (list.children.length) results.append(list);
+    else results.append(text('p', 'Detailed instructions were not returned. Use the Google Maps link for navigation.', 'directions-help'));
+    results.append(text('p', 'Travel time is an estimate to the pickup hub, not a guarantee of catching your shuttle.', 'directions-help'));
+  }
+  $('directions-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (event.isComposing || directions.pending) return;
+    const field = $('directions-origin');
+    const origin = field.value.trim();
+    const invalid = !origin || origin.length > 500;
+    field.setAttribute('aria-invalid', String(invalid));
+    $('directions-error').textContent = invalid ? 'Enter a starting address of 500 characters or fewer.' : '';
+    if (invalid) { field.focus(); return; }
+    if (!directions.hub) { directionsMessage('Select a pickup hub above first.', true); return; }
+    clearDirections('Finding directions…');
+    const version = directions.version;
+    const hub = directions.hub;
+    const mode = document.querySelector('input[name="travelMode"]:checked').value;
+    directions.controller = new AbortController();
+    directions.pending = true;
+    $('get-directions').disabled = true;
+    $('directions-form').setAttribute('aria-busy', 'true');
+    $('directions-results').replaceChildren(text('p', 'Finding your route…', 'empty'));
+    try {
+      const data = await request(`/api/map/hubs/${encodeURIComponent(hub.id)}/directions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ origin, travelMode: mode }), signal: directions.controller.signal });
+      if (version !== directions.version) return;
+      if (!Array.isArray(data.routes)) throw new Error('Directions could not be read. Try again.');
+      if (!data.routes.length) {
+        $('directions-results').replaceChildren(text('p', 'No route found for this trip. Try a different starting address or travel mode.', 'empty'));
+        directionsMessage('No route found. Change your address or travel mode and try again.');
+        return;
+      }
+      renderDirections(data.routes[0], hub, origin, mode);
+      directionsMessage(`Directions ready for ${hub.name}.`);
+    } catch (error) {
+      if (version !== directions.version) return;
+      const message = error.message === 'Google Maps is not configured.' ? 'Directions are not configured yet. The project owner needs to enable Google Routes for this feature.' : error.message;
+      $('directions-results').replaceChildren(text('p', 'Your route could not load. Keep your address and try Get directions again.', 'empty'));
+      directionsMessage(message, true);
+    } finally {
+      if (version === directions.version) {
+        directions.pending = false;
+        $('get-directions').disabled = !directions.hub;
+        $('directions-form').setAttribute('aria-busy', 'false');
+      }
+    }
+  });
+  $('directions-origin').addEventListener('input', () => {
+    $('directions-origin').setAttribute('aria-invalid', 'false');
+    $('directions-error').textContent = '';
+    clearDirections('Starting address changed. Get directions to update your trip.');
+  });
+  document.querySelectorAll('input[name="travelMode"]').forEach((input) => input.addEventListener('change', () => clearDirections('Travel mode changed. Get directions to update your trip.')));
+
   window.addEventListener('offline', () => setStatus('You are offline. Showing any previously loaded network. Reconnect and refresh to update.', true));
   $('refresh').disabled = false;
   $('locate').disabled = false;

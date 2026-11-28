@@ -1,10 +1,28 @@
 {
   "profile": "product-admin",
-  "sourceRoots": ["backend/templates", "backend/static/dashboard.js", "backend/static/dashboard.css"],
+  "sourceRoots": [
+    "backend/templates",
+    "backend/static/dashboard.js",
+    "backend/static/dashboard.css"
+  ],
   "locale": "en-US",
   "canonicalMap": "DESIGN.md",
-  "requiredCapabilities": ["Form", "Scrollbar"],
-  "ownership": {"Form": "backend/templates/dashboard.html and backend/static/dashboard.js", "Scrollbar": "backend/static/dashboard.css"},
-  "requiredCommands": ["unit", "javascript"],
-  "commands": {"unit": "python -m unittest discover -s tests -v", "javascript": "node --check backend/static/dashboard.js"}
+  "requiredCapabilities": [
+    "Form",
+    "Scrollbar"
+  ],
+  "ownership": {
+    "Form": "backend/templates/dashboard.html and backend/static/dashboard.js",
+    "Scrollbar": "backend/static/dashboard.css"
+  },
+  "requiredCommands": [
+    "unit",
+    "javascript",
+    "ui"
+  ],
+  "commands": {
+    "unit": "python -m unittest discover -s tests -v",
+    "javascript": "node --check backend/static/dashboard.js",
+    "ui": "npm run test:ui"
+  }
 }
