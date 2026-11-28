@@ -14,6 +14,16 @@ The sample loader skips existing networks. It creates two hubs, one shuttle and 
 
 Install `backend/requirements.txt`, then run `python -m unittest discover -s tests -v`. Check the dashboard script with `node --check backend/static/dashboard.js`. There is no frontend build step. See `DESIGN.md` for UI ownership and behavior.
 
+## Directions to a pickup hub
+
+Select a hub, enter a starting address in **Directions to your hub**, choose Walk/Bike/Transit/Drive, and click **Get directions**. The dashboard displays estimated travel time, distance, instructions, warnings and a Google Maps navigation link. Changing the hub, address or mode clears the previous trip. The existing network map continues to show scheduled shuttle stops.
+
+In the ignored `.env.local`, set `GOOGLE_MAPS_API_KEY` to your server key with Routes API enabled. To also draw the returned route inside the dashboard, set **a separate** `GOOGLE_MAPS_BROWSER_API_KEY` with Maps JavaScript API enabled, HTTP-referrer restrictions for your actual localhost/production URLs, and API restrictions to Maps JavaScript API. The browser key is intentionally public; never reuse the server key. Restart/recreate the API after changing environment variables. Without the browser key, text directions still work and the Google Maps link opens the map. Without the server key, directions show a setup message while the rest of the dashboard works.
+
+Google routes must be displayed on Google maps, so their geometry is never drawn on the OpenStreetMap network layer. Provider requirements: https://developers.google.com/maps/documentation/routes/policies. Google content is not saved in the database or browser storage. Public deployment also needs the provider-required public terms and privacy policies.
+
+Frontend interaction tests: `npm ci`, then `npm run test:ui` (Node 22+). They mock Google and the API, so no credentials or billable requests are needed. Backend tests remain `python -m unittest discover -s tests -v`.
+
 ## Maps API
 
 Flask reads hubs, schedules, ordered stops, and last-reported shuttle coordinates from PostgreSQL. It calls Google Routes API and Places API (New) using a server key. Put `GOOGLE_MAPS_API_KEY` in the ignored `.env.local` file and enable those two APIs for the key.

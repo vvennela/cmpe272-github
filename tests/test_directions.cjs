@@ -60,7 +60,17 @@ test('shows duration, distance, instructions, warnings and a safe Google navigat
   assert.match($('directions-results').textContent,/Take 22 from A to B/);
   assert.match($('directions-results').textContent,/Use sidewalks/);
   assert.equal(new URL($('directions-results').querySelector('a').href).hostname,'www.google.com');
+  assert.match($('directions-map-status').textContent,/Route map unavailable/);
   assert.equal($('get-directions').disabled,false);
+});
+
+test('draws returned geometry on Google Maps when available',async(t)=>{
+  const {$,submit,maps}=await setup(t,null,true);
+  submit(); await tick(); await tick();
+  assert.equal($('directions-map').hidden,false);
+  assert.equal(maps.polylines.length,1);
+  assert.equal(maps.polylines[0].path.length,2);
+  assert.equal(maps.bounds.points.length,2);
 });
 
 test('empty routes and missing Google configuration have useful retry states',async(t)=>{

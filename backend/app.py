@@ -17,6 +17,7 @@ def create_app(config=None):
         SQLALCHEMY_DATABASE_URI=database_url(),
         SECRET_KEY=os.getenv("SECRET_KEY"),
         GOOGLE_MAPS_API_KEY=os.getenv("GOOGLE_MAPS_API_KEY", ""),
+        GOOGLE_MAPS_BROWSER_API_KEY=os.getenv("GOOGLE_MAPS_BROWSER_API_KEY", ""),
     )
     app.config.update(config or {})
     db.init_app(app)

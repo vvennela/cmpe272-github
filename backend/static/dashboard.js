@@ -280,6 +280,10 @@
     directions.pending = false;
     $('directions-form').setAttribute('aria-busy', 'false');
     $('get-directions').disabled = !directions.hub;
+    directions.line?.setMap(null);
+    directions.line = null;
+    $('directions-map').hidden = true;
+    $('directions-map-status').textContent = '';
     $('directions-results').replaceChildren(text('p', 'Enter a starting address to see travel time, distance, and directions to the selected hub.', 'empty'));
     directionsMessage(message);
   }
@@ -292,6 +296,64 @@
       clearDirections(hub ? 'Ready for your starting address.' : 'Select a hub to get started.');
     }
     $('get-directions').disabled = !hub || directions.pending;
+  }
+  function loadGoogleMap() {
+    if (window.google?.maps?.Map) return Promise.resolve(window.google.maps);
+    if (directions.mapsPromise) return directions.mapsPromise;
+    const key = document.querySelector('.directions-panel').dataset.browserKey;
+    if (!key) return Promise.reject(new Error('Route map unavailable here. Use the Google Maps link to view your trip.'));
+    directions.mapsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      const timer = setTimeout(() => fail(), 12000);
+      function fail() {
+        clearTimeout(timer);
+        script.remove();
+        directions.mapsPromise = null;
+        reject(new Error('The route map could not load. Use the Google Maps link or get directions again to retry.'));
+      }
+      window.shuttleScopeGoogleReady = () => {
+        clearTimeout(timer);
+        resolve(window.google.maps);
+      };
+      window.gm_authFailure = () => {
+        fail();
+        $('directions-map').hidden = true;
+        $('directions-map-status').textContent = 'The route map is unavailable. Use the Google Maps link to view your trip.';
+      };
+      script.async = true;
+      script.onerror = fail;
+      const params = new URLSearchParams({ key, loading: 'async', callback: 'shuttleScopeGoogleReady', libraries: 'geometry', v: 'quarterly', language: 'en', region: 'US' });
+      script.src = `https://maps.googleapis.com/maps/api/js?${params}`;
+      document.head.append(script);
+    });
+    return directions.mapsPromise;
+  }
+  async function drawDirections(route, version) {
+    const encoded = route.polyline?.encodedPolyline;
+    if (!encoded) {
+      $('directions-map-status').textContent = 'No map path was returned. Travel details are available above.';
+      return;
+    }
+    $('directions-map-status').textContent = 'Loading route map…';
+    try {
+      const maps = await loadGoogleMap();
+      if (version !== directions.version) return;
+      const path = maps.geometry.encoding.decodePath(encoded);
+      if (path.length < 2) throw new Error('The route map path is unavailable. Use the Google Maps link to view your trip.');
+      $('directions-map').hidden = false;
+      if (!directions.map) directions.map = new maps.Map($('directions-map'), { center: directions.hub.position, zoom: 12, mapTypeControl: false, streetViewControl: false, gestureHandling: 'cooperative' });
+      directions.line?.setMap(null);
+      directions.line = new maps.Polyline({ map: directions.map, path, strokeColor: color('brand'), strokeWeight: 5, strokeOpacity: 0.9 });
+      const bounds = new maps.LatLngBounds();
+      path.forEach((point) => bounds.extend(point));
+      directions.map.fitBounds(bounds, 35);
+      $('directions-map-status').textContent = '';
+    } catch (error) {
+      if (version === directions.version) {
+        $('directions-map').hidden = true;
+        $('directions-map-status').textContent = error.message;
+      }
+    }
   }
   function renderDirections(route, hub, origin, mode) {
     const results = $('directions-results');
@@ -359,6 +421,8 @@
       }
       renderDirections(data.routes[0], hub, origin, mode);
       directionsMessage(`Directions ready for ${hub.name}.`);
+      // Map loading has its own timeout and does not block readable directions.
+      void drawDirections(data.routes[0], version);
     } catch (error) {
       if (version !== directions.version) return;
       const message = error.message === 'Google Maps is not configured.' ? 'Directions are not configured yet. The project owner needs to enable Google Routes for this feature.' : error.message;

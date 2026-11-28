@@ -49,7 +49,7 @@
       <div id="schedule"><p class="empty">Choose a pickup hub to see its schedule.</p></div>
     </section>
   </section>
-  <section class="directions-panel panel" aria-labelledby="directions-heading">
+  <section class="directions-panel panel" aria-labelledby="directions-heading" data-browser-key="{{ config['GOOGLE_MAPS_BROWSER_API_KEY'] }}">
     <div class="directions-form-area">
       <p class="eyebrow">GET TO YOUR PICKUP</p>
       <h2 id="directions-heading">Directions to your hub</h2>
@@ -72,6 +72,8 @@
     </div>
     <div class="directions-output">
       <div id="directions-results"><p class="empty">Enter a starting address to see travel time, distance, and directions to the selected hub.</p></div>
+      <div id="directions-map" class="directions-map" role="region" aria-label="Google map of directions to the selected pickup hub" hidden></div>
+      <p id="directions-map-status" class="directions-help" role="status"></p>
     </div>
   </section>
   <footer><span>ShuttleScope <span aria-hidden="true">/</span> CMPE 272</span><span>Schedules and positions reflect stored network data.</span></footer>

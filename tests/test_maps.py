@@ -171,3 +171,10 @@ class MapEndpointsTest(unittest.TestCase):
             self.assertEqual(body.get("routingPreference"), "TRAFFIC_AWARE" if mode == "DRIVE" else None)
         self.assertEqual(self.client.post("/api/map/hubs/1/directions", json={"origin": "X", "travelMode": "FLY"}).status_code, 400)
         self.assertEqual(self.client.post("/api/map/hubs/999/directions", json={"origin": "X"}).status_code, 404)
+
+    def test_dashboard_exposes_only_separate_browser_key(self):
+        self.app.config.update(GOOGLE_MAPS_API_KEY="private-server-key", GOOGLE_MAPS_BROWSER_API_KEY="public-browser-key")
+        html = self.client.get("/").data
+        self.assertIn(b'public-browser-key', html)
+        self.assertNotIn(b'private-server-key', html)
+        self.assertIn(b'id="directions-form"', html)
